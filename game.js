@@ -680,16 +680,23 @@ let last = performance.now();
 const TICK = 1 / 120;
 let behind = 0;
 function frame(now) {
+  // Ask for the next frame first: if something goes wrong in this one, the game still keeps going (it used to freeze
+  // for good, with the music still playing).
+  requestAnimationFrame(frame);
   const elapsed = Math.min(.1, (now - last) / 1000); last = now;
   behind += elapsed;
-  while (behind >= TICK) {
-    behind -= TICK;
-    if (!run.paused && !inMenu) clock += TICK;
-    if (!inMenu) update(TICK);
+  try {
+    while (behind >= TICK) {
+      behind -= TICK;
+      if (!run.paused && !inMenu) clock += TICK;
+      if (!inMenu) update(TICK);
+    }
+    if (inMenu) idleFish(elapsed);
+    draw(elapsed); checkSound(elapsed);
+  } catch (error) {
+    behind = 0;
+    reportError(error);
   }
-  if (inMenu) idleFish(elapsed);
-  draw(elapsed); checkSound(elapsed);
-  requestAnimationFrame(frame);
 }
 
 // --- The rainbow bubble (Bryan, 2026-10-22): 5 seconds when nothing can hurt the fish, and monsters that touch the
@@ -994,6 +1001,20 @@ function stat(path, title) {
   if (!STATS_ON || startStage > 1) return;
   try { window.goatcounter?.count?.({path, title, event: true}); } catch (_) {}
 }
+// Something went wrong in the game: tell the stats (each different problem once per visit), with the browser's
+// version, so problems on phones we can't test show up on the dashboard.
+const reported = new Set();
+function reportError(error) {
+  try { console.error(error); } catch (_) {}
+  const where = String(error && error.stack || '').split('\n').find(line => /\.js:\d+/.test(line)) || '';
+  const message = `${error && error.message || error} ${(where.match(/(\w+\.js:\d+)/) || [''])[0]}`.trim().slice(0, 120);
+  if (reported.has(message)) return;
+  reported.add(message);
+  const browser = (navigator.userAgent.match(/(Chrome|CriOS|Firefox|Version)\/[\d]+/) || ['?'])[0] + (/Android/.test(navigator.userAgent) ? ' Android' : '');
+  if (STATS_ON) try { window.goatcounter?.count?.({path: `error-${message.replace(/\W+/g, '-').slice(0, 80)}`, title: `Error: ${message} (${browser})`, event: true}); } catch (_) {}
+}
+window.addEventListener('error', event => reportError(event.error || event.message));
+window.addEventListener('unhandledrejection', event => reportError(event.reason));
 function gameStats(how) {
   const stage = String(run.stage).padStart(2, '0'), length = rules.playLength(run.time);
   stat(`ended-on-stage-${stage}`, `Ended on stage ${run.stage}`);
