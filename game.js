@@ -60,7 +60,6 @@ function showMenu() {
   inMenu = true; makeRun(0);
   setScene(0);
   for (const id of ['over', 'paused', 'sign', 'tip']) document.getElementById(id).classList.add('hidden');
-  document.getElementById('menu-tips').textContent = 'Show Power Up notifications again';
   document.body.classList.add('in-menu');
   const today = new Date(), daily = loadDaily(), best = loadScores()[0];
   document.getElementById('menu-daily-date').textContent = today.toLocaleDateString(undefined, {timeZone: 'UTC', month: 'short', day: 'numeric'});
@@ -628,6 +627,14 @@ const formatDate = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.to
 const SCORES_KEY = 'starcatcher.scores';
 function loadScores() { try { return JSON.parse(localStorage.getItem(SCORES_KEY) || '[]'); } catch (_) { return []; } }
 function saveScores(list) { try { localStorage.setItem(SCORES_KEY, JSON.stringify(list)); } catch (_) {} }
+// Wiping the scores (Bryan, 2026-10-22: "lets also wipe the high scores"): the first time a device opens this version,
+// its top-score list and today's daily best are cleared, once. To wipe them again some day, raise SCORES_WIPE.
+const SCORES_WIPE = 1, WIPE_KEY = 'starswim.scoresWiped';
+try {
+  if (Number(localStorage.getItem(WIPE_KEY) || 0) < SCORES_WIPE) {
+    localStorage.removeItem(SCORES_KEY); localStorage.removeItem(DAILY_KEY); localStorage.setItem(WIPE_KEY, String(SCORES_WIPE));
+  }
+} catch (_) {}
 const formatTime = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 
 function draw(dt) {
@@ -774,7 +781,7 @@ function closeSign() {
 }
 // --- Power-up tips (Bryan, 2026-10-22): the first time a power-up appears, a quick pause with a small card saying what
 //     it is; tap to keep going. At most one per stage, and each only once ever on this device, so returning players
-//     aren't slowed down. "Show power-up tips again" on the menu forgets which have been seen. ---
+//     aren't slowed down. Turning the notifications switch back on forgets which have been seen. ---
 const TIPS_KEY = 'starswim.tipsSeen';
 const tipsSeen = () => { try { return new Set(JSON.parse(localStorage.getItem(TIPS_KEY)) || []); } catch (_) { return new Set(); } };
 function maybeTip(kind) {
@@ -803,20 +810,17 @@ const CARDS_KEY = 'starswim.cards';
 let cardsOn = (() => { try { return localStorage.getItem(CARDS_KEY) !== 'off'; } catch (_) { return true; } })();
 function showCardsSwitches() {
   for (const id of ['menu-cards', 'paused-cards']) document.getElementById(id).setAttribute('aria-pressed', String(cardsOn));
-  document.getElementById('menu-tips').classList.toggle('hidden', !cardsOn);  // "show tips again" only matters with cards on
 }
 for (const id of ['menu-cards', 'paused-cards']) document.getElementById(id).addEventListener('pointerdown', event => {
   event.stopPropagation(); haptic('catch');
   cardsOn = !cardsOn;
-  try { localStorage.setItem(CARDS_KEY, cardsOn ? 'on' : 'off'); } catch (_) {}
+  try {
+    localStorage.setItem(CARDS_KEY, cardsOn ? 'on' : 'off');
+    if (cardsOn) localStorage.removeItem(TIPS_KEY);  // turned back on: each power-up tip shows again (once)
+  } catch (_) {}
   showCardsSwitches();
 });
 showCardsSwitches();
-document.getElementById('menu-tips').addEventListener('pointerdown', event => {
-  event.stopPropagation(); haptic('catch');
-  try { localStorage.removeItem(TIPS_KEY); } catch (_) {}
-  event.currentTarget.textContent = 'Power Up notifications will show again';
-});
 function drawTipPicture(kind) {
   const art = document.getElementById('tip-art'), ratio = window.devicePixelRatio || 1, size = 76;
   art.width = size * ratio; art.height = size * ratio;
