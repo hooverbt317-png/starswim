@@ -50,8 +50,11 @@
   //     The squid is on every stage. Stage 1: the squid alone; stages 2-9 bring in one new monster each, announced by a
   //     "Beware" sign; stages 10-37: every pair of monsters (+ squid); stages 38-93: every trio (+ squid). Pairs and trios
   //     go from gentler to nastier. After stage 93 the trios repeat. ---
-  const INTRO_ORDER = ['squid', 'jellyfish', 'homing', 'puffer', 'piranha', 'mine', 'current', 'shark', 'eel'];  // stages 1-9
-  const MONSTERS = INTRO_ORDER.slice(1);  // the 8 besides the squid
+  // (Bryan, 2026-10-22: currents moved up to stage 3, and the shark is the last intro.)
+  const INTRO_ORDER = ['squid', 'jellyfish', 'current', 'homing', 'puffer', 'piranha', 'mine', 'eel', 'shark'];  // stages 1-9
+  // The 8 besides the squid, in the order the pairs and trios were first laid out in (it breaks ties in TOUGHNESS, so
+  // keeping it means reordering the intros doesn't change stages 10-93).
+  const MONSTERS = ['jellyfish', 'homing', 'puffer', 'piranha', 'mine', 'current', 'shark', 'eel'];
   // How tough each monster is on its own, to put the gentler combinations first (ties keep the intro order).
   const TOUGHNESS = {jellyfish: 1, homing: 2, mine: 2, puffer: 3, current: 3, piranha: 3, eel: 4, shark: 4};
   function combinations(size, from = 0) {
@@ -437,6 +440,11 @@
   const dailySeed = date => seedFor('daily', dayKey(date));
   const newSeed = () => Math.floor(Math.random() * 4294967296);  // an ordinary run: a fresh seed
 
+  // --- The scenery (Bryan, 2026-10-22): 25 ocean scenes, a new one with each stage, in the same order for everyone; after
+  //     stage 25 they come round again. The scenes themselves are in scenery.js. Returns 0-24. ---
+  const SCENE_COUNT = 25;
+  const sceneFor = stage => (Math.max(1, stage) - 1) % SCENE_COUNT;
+
   // --- The top-score list (this device): the 10 best runs, highest score first; a tie keeps the earlier run first.
   //     Returns the new list and where this run landed (0 = the best; -1 = not on the list). Same idea as Little Fin. ---
   const TOP = 10;
@@ -452,7 +460,7 @@
     NAMES, stageNews, SIGNS, SIGN_AUTO, TIPS, TUTORIAL, TUTORIAL_AT, tipsAllowed, randomPickupsAt, BOMB_AFTER_INTROS, RAINBOW_AFTER_INTROS, HEARTS, SAFE_AFTER_BUMP, RESTART_PAUSE, RESUME_SAFE,
     JELLY_RADIUS, jellyGap, jellySpeed, HOMING_FALL, homingPull, homingDrift,
     strikeGap, legsFor, LEG_ROOM, maxLegs, warnTime, legStagger, RISE, LEG_UP, LEG_REACH,
-    STAR_POINTS, COMBO_STEP, MAX_MULTIPLIER, multiplierFor, GOLD_CHANCE, GOLD_SPEED, GOLD_POINTS, pointsFor, TOP, addScore, clamp, makeRandom, seedFor, dayKey, dailySeed, newSeed,
+    STAR_POINTS, COMBO_STEP, MAX_MULTIPLIER, multiplierFor, GOLD_CHANCE, GOLD_SPEED, GOLD_POINTS, pointsFor, TOP, addScore, clamp, makeRandom, seedFor, dayKey, dailySeed, newSeed, SCENE_COUNT, sceneFor,
     HEART_EVERY, MAX_HEARTS, FULL_HEART_POINTS, heartDue, FIRST_BOMB, BOMB_GAP, BLAST_RADIUS, BLAST_POINTS, inBlast, BOMB_KINDS, BAR_HALF, inBar, PICKUP_SPEED,
     FIRST_RAINBOW, RAINBOW_GAP, RAINBOW_TIME, RAINBOW_WARN, RAINBOW_SIZE, BOUNCE_SPEED, BOUNCE_FADE, bounceOff,
     PUFFER_RADIUS, PUFFER_FALL, PUFF_TRIGGER, PUFF_SHAKE, PUFF_GROW, PUFF_HOLD, PUFF_SHRINK, PUFF_REST, PUFF_SIZE,

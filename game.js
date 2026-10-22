@@ -57,6 +57,7 @@ const rand = name => (run.streams[name] ||= rules.makeRandom(rules.seedFor(run.s
 // --- The start menu (Bryan, 2026-10-21): the title over the moving sea, Play, and the Daily Challenge with today's best. ---
 function showMenu() {
   inMenu = true; makeRun(0);
+  setScene(0);
   for (const id of ['over', 'paused', 'sign', 'tip']) document.getElementById(id).classList.add('hidden');
   document.getElementById('menu-tips').textContent = 'Show power-up tips again';
   document.body.classList.add('in-menu');
@@ -69,6 +70,7 @@ function showMenu() {
 // In the menu the fish just swims lazily back and forth.
 function idleFish(dt) {
   clock += dt;
+  setScene(Math.floor(clock / 8) % rules.SCENE_COUNT);  // the menu shows off a new scene every 8 seconds
   const x = width / 2 + Math.sin(clock * .5) * width * .28;
   fish.facing = Math.cos(clock * .5) >= 0 ? 1 : -1;
   fish.x = x; fish.y = height * .66 + Math.sin(clock * 1.3) * 10;
@@ -384,6 +386,7 @@ function nextStage() {
 // A new stage: if it brings in a new monster, its Beware sign comes up first (once the fish has finished changing back);
 // otherwise the "Stage N" banner right away.
 function beginStage() {
+  setScene(rules.sceneFor(run.stage));  // a new sea for every stage (scenery.js)
   const intro = rules.course(run.stage).intro;
   if (intro) run.pendingSign = intro; else startRound();
 }

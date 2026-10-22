@@ -4,28 +4,7 @@
    squid, sparkles and the sea. The fish and jellyfish outlines are in shapes.js.
    They draw with the shared `ctx`, `clock`, `width` and `height` from game.js. */
 
-// --- The sea (Little Fin's background(), default water) ---
-const seaBubbles = Array.from({length: 28}, () => ({x: Math.random(), y: Math.random(), radius: 1 + Math.random() * 3, speed: .015 + Math.random() * .025}));
-function drawSea(dt) {
-  const gradient = ctx.createLinearGradient(0, 0, width * .35, height);
-  gradient.addColorStop(0, '#124f62'); gradient.addColorStop(.5, '#083449'); gradient.addColorStop(1, '#06273e');
-  ctx.fillStyle = gradient; ctx.fillRect(0, 0, width, height);
-  // Soft light rays.
-  ctx.save(); ctx.globalAlpha = .035; ctx.fillStyle = '#d4fff1';
-  for (let i = 0; i < 4; i++) { const x = width * (.12 + i * .25); ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + 30, 0); ctx.lineTo(x + width * .35, height); ctx.lineTo(x + width * .04, height); ctx.fill(); }
-  ctx.restore();
-  for (const bubble of seaBubbles) {
-    bubble.y -= dt * bubble.speed; if (bubble.y < -.01) bubble.y = 1.01;
-    ctx.beginPath(); ctx.arc(bubble.x * width + Math.sin(clock * .4 + bubble.x * 10) * 8, bubble.y * height, bubble.radius, 0, Math.PI * 2); ctx.strokeStyle = '#b7e6e626'; ctx.lineWidth = 1; ctx.stroke();
-  }
-  // Rolling sea floor and swaying plants.
-  ctx.fillStyle = '#092d40'; ctx.beginPath(); ctx.moveTo(0, height); ctx.lineTo(0, height - 40);
-  ctx.bezierCurveTo(width * .25, height - 85, width * .6, height + 5, width, height - 46); ctx.lineTo(width, height); ctx.fill();
-  for (let i = 0; i < 12; i++) {
-    const x = (i < 6 ? i * 11 : width - (i - 6) * 12), plantHeight = 35 + (i % 4) * 20, sway = Math.sin(clock * .8 + i) * 8;
-    ctx.beginPath(); ctx.moveTo(x, height + 5); ctx.bezierCurveTo(x - 10, height - 20, x + sway, height - plantHeight / 2, x + sway, height - plantHeight); ctx.strokeStyle = i % 2 ? '#17515a' : '#11404d'; ctx.lineWidth = 5 + i % 3; ctx.lineCap = 'round'; ctx.stroke();
-  }
-}
+// (The sea behind everything, 25 scenes of it, is in scenery.js.)
 
 // --- The fish (Little Fin's drawFish(), "Storybook" look, plain shape; outlines in shapes.js) ---
 function paintOutline(points, radius, color) {
