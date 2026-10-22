@@ -148,6 +148,19 @@
                   background: #ffffff10; color: #fff7d6; font: 600 16px -apple-system, system-ui, sans-serif;
                   -webkit-tap-highlight-color: transparent; }
     #start-over.armed { background: #ff8a7a33; border-color: #ff9f90; color: #ffd6cf; }
+    /* The "Creature & power-up cards" switch (Bryan, 2026-10-22), on the menu and the pause screen. */
+    button.cards-switch { pointer-events: auto; display: flex; align-items: center; justify-content: space-between; gap: 14px;
+                          width: auto; padding: 10px 14px 10px 18px; border-radius: 16px; border: none; background: #ffffff12; box-shadow: none;
+                          color: #fff7d6; font: 500 16px -apple-system, system-ui, sans-serif; text-align: left; -webkit-tap-highlight-color: transparent; }
+    #menu button.cards-switch { width: min(280px, calc(100vw - 64px)); font: 500 16px -apple-system, system-ui, sans-serif; color: #fff7d6;
+                                padding: 10px 14px 10px 18px; background: #021a2b88; box-shadow: none; margin-top: 4px; }
+    #paused button.cards-switch { margin-top: 10px; }
+    #menu-tips.hidden { display: none; }
+    .cards-switch i { position: relative; flex: none; width: 46px; height: 28px; border-radius: 14px; background: #fff7d633; transition: background .2s; }
+    .cards-switch i::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%;
+                             background: #fff7d6; box-shadow: 0 1px 3px #0008; transition: transform .2s; }
+    .cards-switch[aria-pressed="true"] i { background: #3ccf9f; }
+    .cards-switch[aria-pressed="true"] i::after { transform: translateX(18px); }
     #paused p { margin-top: 28px; font-size: 18px; animation: pulse 1.4s ease-in-out infinite; }
   </style>
 </head>
@@ -181,6 +194,7 @@
     <button id="menu-play" type="button" class="big">Play</button>
     <button id="menu-daily" type="button" class="daily"><b>Daily Challenge</b><span><span id="menu-daily-date"></span> · <span id="menu-daily-best"></span></span></button>
     <div id="menu-best"></div>
+    <button id="menu-cards" type="button" class="cards-switch" aria-pressed="true"><span>Creature &amp; power-up cards</span><i></i></button>
     <button id="menu-tips" type="button" class="link">Show power-up tips again</button>
   </div>
   <!-- The Beware sign before a stage with a new monster (game.js showSign). Taps go through to the game to close it. -->
@@ -202,6 +216,7 @@
     <div id="paused-score"></div>
     <div id="paused-details"></div>
     <label id="volume-row"><span>Music</span><span class="speaker">🔈</span><input id="volume" type="range" min="0" max="100" step="1" aria-label="Music volume"><span class="speaker">🔊</span></label>
+    <button id="paused-cards" type="button" class="cards-switch" aria-pressed="true"><span>Creature &amp; power-up cards</span><i></i></button>
     <button id="start-over" type="button">Start over</button>
     <p>Tap to keep playing</p>
   </div>

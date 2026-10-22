@@ -390,7 +390,7 @@ function nextStage() {
 function beginStage() {
   setScene(rules.sceneFor(run.stage));  // a new sea for every stage (scenery.js)
   const intro = rules.course(run.stage).intro;
-  if (intro) run.pendingSign = intro; else startRound();
+  if (intro && cardsOn) run.pendingSign = intro; else startRound();
 }
 // The start of a round (after the sign, if there is one): the "Stage N" banner and a calm "Ready..." with nothing coming
 // in, then "Go!" and the first stars and monsters soon after.
@@ -778,7 +778,7 @@ function closeSign() {
 const TIPS_KEY = 'starswim.tipsSeen';
 const tipsSeen = () => { try { return new Set(JSON.parse(localStorage.getItem(TIPS_KEY)) || []); } catch (_) { return new Set(); } };
 function maybeTip(kind) {
-  if (!rules.TIPS[kind] || !rules.tipsAllowed(run.stage) || run.tip || run.sign || run.tipStage === run.stage || tipsSeen().has(kind)) return;
+  if (!cardsOn || !rules.TIPS[kind] || !rules.tipsAllowed(run.stage) || run.tip || run.sign || run.tipStage === run.stage || tipsSeen().has(kind)) return;
   run.tip = {kind}; run.tipStage = run.stage;
   try { localStorage.setItem(TIPS_KEY, JSON.stringify([...tipsSeen(), kind])); } catch (_) {}
   document.getElementById('tip-title').textContent = rules.TIPS[kind].title;
@@ -796,6 +796,22 @@ function closeTip() {
   document.getElementById('hint').classList.remove('under-sign');
   fish.safe = Math.max(fish.safe, .5);
 }
+// --- The "Creature & power-up cards" switch (Bryan, 2026-10-22: "a clear option to turn the sea creature and power up
+//     notifications off ... so users don't get interrupted"), on the menu and the pause screen. Off: no Beware signs
+//     and no power-up tips; the stages, monsters and power-ups themselves are the same either way. Remembered per device. ---
+const CARDS_KEY = 'starswim.cards';
+let cardsOn = (() => { try { return localStorage.getItem(CARDS_KEY) !== 'off'; } catch (_) { return true; } })();
+function showCardsSwitches() {
+  for (const id of ['menu-cards', 'paused-cards']) document.getElementById(id).setAttribute('aria-pressed', String(cardsOn));
+  document.getElementById('menu-tips').classList.toggle('hidden', !cardsOn);  // "show tips again" only matters with cards on
+}
+for (const id of ['menu-cards', 'paused-cards']) document.getElementById(id).addEventListener('pointerdown', event => {
+  event.stopPropagation(); haptic('catch');
+  cardsOn = !cardsOn;
+  try { localStorage.setItem(CARDS_KEY, cardsOn ? 'on' : 'off'); } catch (_) {}
+  showCardsSwitches();
+});
+showCardsSwitches();
 document.getElementById('menu-tips').addEventListener('pointerdown', event => {
   event.stopPropagation(); haptic('catch');
   try { localStorage.removeItem(TIPS_KEY); } catch (_) {}
