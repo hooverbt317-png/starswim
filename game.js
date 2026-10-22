@@ -60,7 +60,7 @@ function showMenu() {
   inMenu = true; makeRun(0);
   setScene(0);
   for (const id of ['over', 'paused', 'sign', 'tip']) document.getElementById(id).classList.add('hidden');
-  document.getElementById('menu-tips').textContent = 'Show power-up tips again';
+  document.getElementById('menu-tips').textContent = 'Show Power Up notifications again';
   document.body.classList.add('in-menu');
   const today = new Date(), daily = loadDaily(), best = loadScores()[0];
   document.getElementById('menu-daily-date').textContent = today.toLocaleDateString(undefined, {timeZone: 'UTC', month: 'short', day: 'numeric'});
@@ -796,8 +796,8 @@ function closeTip() {
   document.getElementById('hint').classList.remove('under-sign');
   fish.safe = Math.max(fish.safe, .5);
 }
-// --- The "Creature & power-up cards" switch (Bryan, 2026-10-22: "a clear option to turn the sea creature and power up
-//     notifications off ... so users don't get interrupted"), on the menu and the pause screen. Off: no Beware signs
+// --- The "Sea Creature & Power Up notifications" switch (Bryan, 2026-10-22: "a clear option to turn the sea creature
+//     and power up notifications off ... so users don't get interrupted"), on the menu and the pause screen. Off: no Beware signs
 //     and no power-up tips; the stages, monsters and power-ups themselves are the same either way. Remembered per device. ---
 const CARDS_KEY = 'starswim.cards';
 let cardsOn = (() => { try { return localStorage.getItem(CARDS_KEY) !== 'off'; } catch (_) { return true; } })();
@@ -815,7 +815,7 @@ showCardsSwitches();
 document.getElementById('menu-tips').addEventListener('pointerdown', event => {
   event.stopPropagation(); haptic('catch');
   try { localStorage.removeItem(TIPS_KEY); } catch (_) {}
-  event.currentTarget.textContent = 'Power-up tips will show again';
+  event.currentTarget.textContent = 'Power Up notifications will show again';
 });
 function drawTipPicture(kind) {
   const art = document.getElementById('tip-art'), ratio = window.devicePixelRatio || 1, size = 76;
