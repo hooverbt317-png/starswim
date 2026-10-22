@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!-- Fill the phone screen and don't let a pinch or double-tap zoom in while playing. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>StarSwim</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #06273e; overscroll-behavior: none; }
+    body { position: fixed; inset: 0; font-family: -apple-system, system-ui, sans-serif; color: #fff7d6;
+           -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+    canvas { display: block; touch-action: none; }  /* touch drags move the fish, never scroll the page */
+    .text { pointer-events: none; text-shadow: 0 2px 6px #0008; }
+    /* Top bar: hearts on the left, score and combo in the middle, stage on the right. */
+    #hud { position: fixed; top: max(10px, env(safe-area-inset-top)); left: 14px; right: 14px; display: grid;
+           grid-template-columns: 1fr auto 1fr; align-items: center; }
+    #hearts { font-size: 22px; color: #ff8fa0; letter-spacing: 2px; transform-origin: left center; }
+    /* After a hit the hearts flash white-red and shake; on the last heart it keeps pulsing. */
+    #hearts.hit { animation: hearts-hit .6s ease-out; }
+    @keyframes hearts-hit { 0%, 40% { color: #ffffff; transform: scale(1.35); } 10%, 30% { transform: scale(1.35) translateX(-5px); }
+                            20% { transform: scale(1.35) translateX(5px); } 100% { color: #ff8fa0; transform: none; } }
+    #hearts.last:not(.hit) { animation: last-heart 1s ease-in-out infinite; }
+    @keyframes last-heart { 50% { color: #ff3b52; transform: scale(1.15); text-shadow: 0 0 10px #ff3b52; } }
+    #middle { display: flex; flex-direction: column; align-items: center; }
+    #score { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    #combo { font-size: 14px; color: #9ff3d8; letter-spacing: 1px; }
+    #combo b { font-size: 17px; }
+    #combo.hidden { visibility: hidden; }
+    #right { justify-self: end; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+    #stage { font-size: 15px; opacity: .75; }
+    /* The music button: a note in a soft circle, crossed out when the music is off. It takes taps (the bar doesn't). */
+    #buttons { display: flex; gap: 8px; }
+    #pause.hidden { visibility: hidden; }
+    #pause { font-size: 11px; letter-spacing: -1px; }
+    #music, #pause { pointer-events: auto; width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid #fff7d655;
+             background: #ffffff14; color: #fff7d6; font-size: 17px; line-height: 1; padding: 0; position: relative;
+             -webkit-tap-highlight-color: transparent; }
+    #music.off { opacity: .5; }
+    #music.off::after { content: ""; position: absolute; left: 7px; right: 7px; top: 50%; height: 2px; background: #fff7d6;
+                        transform: rotate(-45deg); }
+    #hint { position: fixed; left: 16px; right: 16px; bottom: 22%; text-align: center; font-size: 18px; opacity: .85; transition: opacity .6s; }
+    #hint.gone, #hint.under-sign { opacity: 0; }
+    /* The stage banner fades in and out in the middle of the screen. */
+    #banner { position: fixed; left: 0; right: 0; top: 34%; text-align: center; opacity: 0; }
+    #banner b { display: block; font-size: 34px; }
+    #banner span { font-size: 18px; opacity: .85; }
+    #banner.show { animation: banner 2.4s ease-out; }
+    @keyframes banner { 0% { opacity: 0; transform: scale(.9); } 12%, 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; } }
+    /* After the last heart. Taps go through to the game, which starts the next run. */
+    #over { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 6px; background: #021a2bb0; }
+    #over.hidden { display: none; }
+    #over h1 { margin: 0; font-size: 24px; font-weight: 600; opacity: .9; }
+    #over h1.best { color: #ffd95a; opacity: 1; }
+    #over-score { font-size: 60px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    #over-details { font-size: 15px; opacity: .75; text-align: center; padding: 0 16px; }
+    /* The top-score list: rank, score, stage, date; this run highlighted. */
+    #over ol { list-style: none; margin: 18px 0 0; padding: 0; width: min(320px, calc(100% - 32px)); font-size: 15px;
+               font-variant-numeric: tabular-nums; }
+    #over li { display: grid; grid-template-columns: 2em 1fr auto 4.5em; gap: 8px; padding: 4px 10px; border-radius: 8px; opacity: .8; }
+    #over li b { font-weight: 600; }
+    #over li span:last-child { text-align: right; opacity: .7; }
+    #over li.mine { background: #ffd95a2e; color: #ffe9a8; opacity: 1; }
+    #over p { margin-top: 20px; font-size: 18px; animation: pulse 1.4s ease-in-out infinite; }
+    @keyframes pulse { 50% { opacity: .45; } }
+    /* The start menu: the title over the moving sea, a big Play button and the Daily Challenge. */
+    #menu { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+            padding-bottom: 20vh; text-align: center; color: #fff7d6; text-shadow: 0 2px 8px #0009; }
+    #menu.hidden { display: none; }
+    #menu .logo { margin: 0; font: 800 58px -apple-system, system-ui, sans-serif; letter-spacing: -1px; color: #ffd95a; }
+    #menu .logo span { color: #9ff3d8; }
+    #menu .tagline { font-size: 17px; opacity: .85; margin-bottom: 18px; }
+    #menu button { font: 700 22px -apple-system, system-ui, sans-serif; color: #06273e; border: none; border-radius: 26px;
+                   width: min(280px, calc(100vw - 64px)); padding: 15px 20px; -webkit-tap-highlight-color: transparent;
+                   box-shadow: 0 6px 16px #0007; }
+    #menu button.big { background: linear-gradient(180deg, #ffe17a, #ffbf3a); }
+    #menu button.daily { background: linear-gradient(180deg, #b6f6e2, #6fd9bb); display: flex; flex-direction: column; gap: 3px; }
+    #menu button.daily span { font-size: 14px; font-weight: 600; opacity: .8; }
+    #menu-best { margin-top: 6px; font-size: 15px; opacity: .75; }
+    body.in-menu #hud, body.in-menu #hint { visibility: hidden; }
+    #over-daily { font-size: 17px; color: #9ff3d8; }
+    #menu button.link { background: none; box-shadow: none; color: #fff7d6; opacity: .6; font: 500 14px -apple-system, system-ui, sans-serif;
+                        text-decoration: underline; width: auto; padding: 6px 10px; margin-top: 4px; }
+    /* A power-up tip: a small card with the item's picture, its name and what it does. */
+    #tip { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+           background: #021a2b70; pointer-events: none; }
+    #tip.hidden { display: none; }
+    #tip.show .card { animation: tip-in .3s cubic-bezier(.2, 1.4, .4, 1); }
+    @keyframes tip-in { from { transform: scale(.7); opacity: 0; } to { transform: none; opacity: 1; } }
+    #tip .card { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; width: min(320px, calc(100vw - 40px)); padding: 12px 18px 14px 12px;
+                 border-radius: 18px; background: #fff7e6; color: #233a4a; box-shadow: 0 10px 28px #0009; }
+    #tip-art { width: 76px; height: 76px; flex: none; border-radius: 14px; background: radial-gradient(circle, #1d6a84, #0b3a52); }
+    /* "Power Up!" across the top of the card, like "Beware!" on the monster signs. */
+    #tip .heading { flex-basis: 100%; text-align: center; font: 900 22px -apple-system, system-ui, sans-serif; letter-spacing: 1px;
+                    text-transform: uppercase; color: #e8a400; text-shadow: 0 1px 0 #8a5a00; }
+    #tip .card > div:last-child { flex: 1; }
+    #tip .card b { display: block; font: 800 20px -apple-system, system-ui, sans-serif; margin-bottom: 3px; }
+    #tip .card span { font: 500 15px/1.3 -apple-system, system-ui, sans-serif; }
+    #tip p { margin-top: 16px; font-size: 17px; color: #fff7d6; text-shadow: 0 2px 6px #0008; animation: pulse 1.4s ease-in-out infinite; }
+    #over-menu { pointer-events: auto; margin-top: 10px; padding: 9px 24px; border-radius: 20px; border: 1.5px solid #fff7d666;
+                 background: #ffffff10; color: #fff7d6; font: 600 15px -apple-system, system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+    /* The Beware sign: an old, sun-bleached wooden beach sign on two posts, with hand-painted letters. */
+    #sign { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: #021a2b99; pointer-events: none; }
+    #sign.hidden { display: none; }
+    #sign.show .board, #sign.show .posts { animation: sign-up .55s cubic-bezier(.2, 1.4, .4, 1); }
+    @keyframes sign-up { from { transform: translateY(70vh) rotate(-8deg); } to { transform: translateY(0) rotate(-2deg); } }
+    #sign .board { position: relative; width: min(300px, calc(100vw - 48px)); padding: 22px 22px 20px; transform: rotate(-2deg);
+                   border-radius: 14px 9px 16px 8px; box-shadow: 0 10px 26px #0009, inset 0 0 26px #3b210f88;
+                   font-family: "Chalkboard SE", "Marker Felt", "Comic Sans MS", cursive; text-align: center; color: #fff4dc;
+                   background:
+                     repeating-linear-gradient(176deg, #ffffff08 0 2px, transparent 2px 9px),          /* wood grain */
+                     linear-gradient(180deg, transparent 32%, #3b210f66 32% 33.5%, transparent 33.5% 66%, #3b210f66 66% 67.5%, transparent 67.5%),  /* plank seams */
+                     radial-gradient(ellipse at 20% 15%, #e7c99a55, transparent 45%),                   /* sun-bleached patch */
+                     linear-gradient(180deg, #b98450, #9b6a3c 50%, #86592f); }
+    #sign .beware { font-size: 38px; font-weight: 700; color: #d9412f; letter-spacing: 2px; text-transform: uppercase;
+                    text-shadow: 1px 1px 0 #6b1d14, 0 0 1px #6b1d14; transform: rotate(-1.5deg); }
+    #sign-title { font-size: 26px; font-weight: 700; margin-top: 2px; text-shadow: 1px 2px 0 #4a2b14; }
+    #sign .window { margin: 12px auto 10px; width: 200px; height: 110px; max-width: 100%; border-radius: 10px;
+                    background: linear-gradient(180deg, #2b7e96, #154b62); box-shadow: inset 0 0 0 3px #f1e3c4, inset 0 0 10px #0006; overflow: hidden; }
+    #sign-art { width: 200px; height: 110px; display: block; }
+    #sign-tip { font-size: 17px; line-height: 1.3; text-shadow: 1px 1px 0 #4a2b14; }
+    #sign .nail { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #d8d2c6, #6d6556); box-shadow: 0 1px 1px #0008; }
+    #sign .posts { display: flex; gap: 150px; transform: rotate(-2deg); }
+    #sign .posts span { display: block; width: 18px; height: 70px; border-radius: 0 0 4px 4px;
+                        background: linear-gradient(90deg, #6f4825, #8f6236 45%, #6a4421); box-shadow: 0 6px 10px #0007; }
+    #sign p { margin-top: 18px; font-size: 18px; color: #fff7d6; text-shadow: 0 2px 6px #0008; animation: pulse 1.4s ease-in-out infinite; }
+    /* The pause screen: the stage, the score so far, stars, hearts and time. Taps go through to the game to resume. */
+    #paused { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+              gap: 6px; background: #021a2bc8; }
+    #paused.hidden { display: none; }
+    #paused h1 { margin: 0 0 10px; font-size: 22px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; opacity: .75; }
+    #paused-stage { font-size: 34px; font-weight: 700; color: #9ff3d8; }
+    #paused-score { font-size: 60px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    #paused-details { font-size: 17px; opacity: .8; }
+    /* The music volume slider: the row takes touches (so sliding doesn't end the pause); big thumb for fingers. */
+    #volume-row { pointer-events: auto; display: flex; align-items: center; gap: 10px; margin-top: 26px; padding: 12px 18px;
+                  border-radius: 16px; background: #ffffff12; font-size: 16px; }
+    #volume-row .speaker { font-size: 15px; opacity: .8; }
+    #volume { -webkit-appearance: none; appearance: none; width: min(190px, 46vw); height: 6px; border-radius: 3px;
+              background: #fff7d640; outline: none; margin: 0; }
+    #volume::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: #9ff3d8;
+                                    border: 2px solid #06273e; box-shadow: 0 1px 4px #0008; }
+    #volume::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: #9ff3d8; border: 2px solid #06273e; }
+    /* Start over: a quieter button than the game itself; it turns warm when it's waiting for the second tap. */
+    #start-over { pointer-events: auto; margin-top: 14px; padding: 11px 26px; border-radius: 22px; border: 1.5px solid #fff7d666;
+                  background: #ffffff10; color: #fff7d6; font: 600 16px -apple-system, system-ui, sans-serif;
+                  -webkit-tap-highlight-color: transparent; }
+    #start-over.armed { background: #ff8a7a33; border-color: #ff9f90; color: #ffd6cf; }
+    #paused p { margin-top: 28px; font-size: 18px; animation: pulse 1.4s ease-in-out infinite; }
+  </style>
+</head>
+<body>
+  <canvas id="sea"></canvas>
+  <div id="hud" class="text"><span id="hearts"></span><span id="middle"><span id="score">0</span><span id="combo" class="hidden"></span></span><span id="right"><span id="stage"></span><span id="buttons"><button id="music" type="button">♪</button><button id="pause" type="button" aria-label="Pause">❚❚</button></span></span></div>
+  <div id="hint" class="text">Drag to swim · catch the stars</div>
+  <div id="banner" class="text"></div>
+  <div id="over" class="text hidden">
+    <h1 id="over-title">Out of hearts</h1>
+    <div id="over-score">0</div>
+    <div id="over-details"></div>
+    <div id="over-daily"></div>
+    <ol id="over-list"></ol>
+    <p>Tap to play again</p>
+    <button id="over-menu" type="button">Menu</button>
+  </div>
+  <!-- A power-up tip, the first time each one appears (game.js maybeTip). Taps go through to the game to close it. -->
+  <div id="tip" class="hidden">
+    <div class="card">
+      <div class="heading">Power Up!</div>
+      <canvas id="tip-art"></canvas>
+      <div><b id="tip-title"></b><span id="tip-text"></span></div>
+    </div>
+    <p>Tap to keep going</p>
+  </div>
+  <!-- The start menu (game.js showMenu): the title, Play, and today's Daily Challenge. -->
+  <div id="menu" class="hidden">
+    <h1 class="logo">Star<span>Swim</span></h1>
+    <div class="tagline">Catch the stars. Dodge the deep.</div>
+    <button id="menu-play" type="button" class="big">Play</button>
+    <button id="menu-daily" type="button" class="daily"><b>Daily Challenge</b><span><span id="menu-daily-date"></span> · <span id="menu-daily-best"></span></span></button>
+    <div id="menu-best"></div>
+    <button id="menu-tips" type="button" class="link">Show power-up tips again</button>
+  </div>
+  <!-- The Beware sign before a stage with a new monster (game.js showSign). Taps go through to the game to close it. -->
+  <div id="sign" class="hidden">
+    <div class="board">
+      <div class="beware">Beware!</div>
+      <div id="sign-title"></div>
+      <div class="window"><canvas id="sign-art"></canvas></div>
+      <div id="sign-tip"></div>
+      <i class="nail" style="left: 12px; top: 12px"></i><i class="nail" style="right: 12px; top: 12px"></i>
+      <i class="nail" style="left: 12px; bottom: 12px"></i><i class="nail" style="right: 12px; bottom: 12px"></i>
+    </div>
+    <div class="posts"><span></span><span></span></div>
+    <p>Tap to start</p>
+  </div>
+  <div id="paused" class="text hidden">
+    <h1>Paused</h1>
+    <div id="paused-stage"></div>
+    <div id="paused-score"></div>
+    <div id="paused-details"></div>
+    <label id="volume-row"><span>Music</span><span class="speaker">🔈</span><input id="volume" type="range" min="0" max="100" step="1" aria-label="Music volume"><span class="speaker">🔊</span></label>
+    <button id="start-over" type="button">Start over</button>
+    <p>Tap to keep playing</p>
+  </div>
+  <script src="music-data.js"></script>
+  <script src="rules.js"></script>
+  <script src="shapes.js"></script>
+  <script src="drawings.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
