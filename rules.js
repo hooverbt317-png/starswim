@@ -445,6 +445,10 @@
   const SCENE_COUNT = 25;
   const sceneFor = stage => (Math.max(1, stage) - 1) % SCENE_COUNT;
 
+  // --- Play stats for the web version (Bryan, 2026-10-22): how long a game lasted, in a few rough groups. ---
+  const LENGTH_GROUPS = [[1, 'under 1 min'], [3, '1-3 min'], [5, '3-5 min'], [10, '5-10 min'], [20, '10-20 min'], [30, '20-30 min'], [45, '30-45 min']];
+  const playLength = seconds => (LENGTH_GROUPS.find(([upTo]) => seconds < upTo * 60) || [0, '45+ min'])[1];
+
   // --- The top-score list (this device): the 10 best runs, highest score first; a tie keeps the earlier run first.
   //     Returns the new list and where this run landed (0 = the best; -1 = not on the list). Same idea as Little Fin. ---
   const TOP = 10;
@@ -460,7 +464,7 @@
     NAMES, stageNews, SIGNS, SIGN_AUTO, TIPS, TUTORIAL, TUTORIAL_AT, tipsAllowed, randomPickupsAt, BOMB_AFTER_INTROS, RAINBOW_AFTER_INTROS, HEARTS, SAFE_AFTER_BUMP, RESTART_PAUSE, RESUME_SAFE,
     JELLY_RADIUS, jellyGap, jellySpeed, HOMING_FALL, homingPull, homingDrift,
     strikeGap, legsFor, LEG_ROOM, maxLegs, warnTime, legStagger, RISE, LEG_UP, LEG_REACH,
-    STAR_POINTS, COMBO_STEP, MAX_MULTIPLIER, multiplierFor, GOLD_CHANCE, GOLD_SPEED, GOLD_POINTS, pointsFor, TOP, addScore, clamp, makeRandom, seedFor, dayKey, dailySeed, newSeed, SCENE_COUNT, sceneFor,
+    STAR_POINTS, COMBO_STEP, MAX_MULTIPLIER, multiplierFor, GOLD_CHANCE, GOLD_SPEED, GOLD_POINTS, pointsFor, TOP, addScore, clamp, makeRandom, seedFor, dayKey, dailySeed, newSeed, SCENE_COUNT, sceneFor, playLength,
     HEART_EVERY, MAX_HEARTS, FULL_HEART_POINTS, heartDue, FIRST_BOMB, BOMB_GAP, BLAST_RADIUS, BLAST_POINTS, inBlast, BOMB_KINDS, BAR_HALF, inBar, PICKUP_SPEED,
     FIRST_RAINBOW, RAINBOW_GAP, RAINBOW_TIME, RAINBOW_WARN, RAINBOW_SIZE, BOUNCE_SPEED, BOUNCE_FADE, bounceOff,
     PUFFER_RADIUS, PUFFER_FALL, PUFF_TRIGGER, PUFF_SHAKE, PUFF_GROW, PUFF_HOLD, PUFF_SHRINK, PUFF_REST, PUFF_SIZE,

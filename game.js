@@ -50,6 +50,7 @@ function startGame(newMode = mode) {
   document.body.classList.remove('in-menu');
   updateHud();
   beginStage();
+  stat(`start-${mode}`, mode === 'daily' ? 'Started: Daily Challenge' : 'Started: a game');
 }
 // This run's random numbers, one stream per kind of thing, started fresh each stage (see the "Seeds" part of rules.js).
 const rand = name => (run.streams[name] ||= rules.makeRandom(rules.seedFor(run.seed, run.stage, name)))();
@@ -156,6 +157,7 @@ startOverButton.addEventListener('pointerdown', event => {
     return;
   }
   if (run.score > 0) recordRun();
+  gameStats('Start over');
   startGame();
   if (musicOn) fadeMusic(musicLevel, .5);
 });
@@ -600,6 +602,7 @@ function squidLegTouching() {
 function endGame() {
   run.over = true; run.overFor = 0; hideHint(); document.getElementById('pause').classList.add('hidden'); haptic('gameOver');
   const {list, rank} = recordRun();
+  gameStats('Out of hearts');
   const $ = id => document.getElementById(id);
   const daily = mode === 'daily' && startStage === 1 ? saveDaily(run.score) : null;
   $('over-title').textContent = startStage > 1 ? `Practice run (from stage ${startStage})` : daily ? (daily.isNew ? 'New daily best!' : 'Daily Challenge')
@@ -976,6 +979,26 @@ const chime = () => { tone(660, 660, .3, 'sine', .08); tone(990, 990, .4, 'sine'
 function haptic(effect) {
   try { if (window.webkit?.messageHandlers?.starCatcherHaptics) { window.webkit.messageHandlers.starCatcherHaptics.postMessage(effect); return; } } catch (_) {}
   if (effect === 'bump' && audio) try { navigator.vibrate?.(60); } catch (_) {}
+}
+
+// --- Play stats (Bryan, 2026-10-22), on the web version only (https://starswim.goatcounter.com): anonymous counts of games
+//     started, the stage each game ended on, how long it lasted, and how it ended. No names, no cookies; nothing is sent
+//     from the iPhone app, from this Mac (localhost), or for practice runs (?stage=N). ---
+const STATS_ON = /\.github\.io$/.test(location.hostname) && !window.webkit?.messageHandlers?.starCatcherHaptics;
+if (STATS_ON) {
+  const script = document.createElement('script');
+  script.async = true; script.src = 'https://gc.zgo.at/count.js'; script.dataset.goatcounter = 'https://starswim.goatcounter.com/count';
+  document.head.appendChild(script);
+}
+function stat(path, title) {
+  if (!STATS_ON || startStage > 1) return;
+  try { window.goatcounter?.count?.({path, title, event: true}); } catch (_) {}
+}
+function gameStats(how) {
+  const stage = String(run.stage).padStart(2, '0'), length = rules.playLength(run.time);
+  stat(`ended-on-stage-${stage}`, `Ended on stage ${run.stage}`);
+  stat(`length-${length.replace(/\W+/g, '-')}`, `Game length: ${length}`);
+  stat(`ended-${how.toLowerCase().replace(/\W+/g, '-')}`, `Ended: ${how}`);
 }
 
 window.addEventListener('resize', fitCanvas);
