@@ -28,13 +28,18 @@ const legTip = () => height * rules.LEG_REACH;
 // Everything about the current run.
 const startStage = Math.max(1, parseInt(new URLSearchParams(location.search).get('stage')) || 1);
 let fish = null, target = null, run = null, particles = [];
-// --- Starting a run. A run is a normal game (a fresh seed) or today's Daily Challenge (the day's seed, the same for
-//     everyone); `mode` remembers which, so "play again" and "Start over" repeat it. ---
+// --- Starting a run. A run is a normal game (a fresh seed), today's Daily Challenge (the day's seed, the same for
+//     everyone) or a Sprint (Bryan, 2026-10-22: every monster from the start, 5% faster each stage; see rules.js);
+//     `mode` remembers which, so "play again" and "Start over" repeat it. ---
 let mode = 'play', inMenu = true;
+// The course stage a run starts on: 1, the ?stage=N practice stage, or for a Sprint the main game's stage 10.
+const firstStage = () => mode === 'sprint' ? rules.SPRINT_FROM : startStage;
+// The stage number the player sees: a Sprint counts its own stages from 1.
+const shownStage = (stage = run.stage) => mode === 'sprint' ? rules.sprintStage(stage) : stage;
 function makeRun(seed) {
   fish = {x: width / 2, y: height * .7, radius: 18 * sizeScale, facing: 1, color: '#ffbb7e', safe: 0, wiggle: 0, shark: null, morph: null, rainbow: 0};
   target = {x: fish.x, y: fish.y};
-  run = {seed, streams: {}, time: 0, stage: startStage, hearts: rules.HEARTS, caught: 0, missed: 0, score: 0, streak: 0, bestStreak: 0,
+  run = {seed, streams: {}, time: 0, stage: firstStage(), hearts: rules.HEARTS, caught: 0, missed: 0, score: 0, streak: 0, bestStreak: 0,
     stars: [], jellies: [], strikes: [], floaters: [], pickups: [], blasts: [], starTimer: 0, jellyTimer: 1.5, strikeTimer: 3,
     bombTimer: rules.FIRST_BOMB, rainbowTimer: rules.FIRST_RAINBOW, schools: [], schoolTimer: rules.FIRST_SCHOOL,
     currents: [], currentTimer: rules.FIRST_CURRENT, drift: 0, sharks: [], sharkTimer: rules.FIRST_SHARK, eels: [], eelTimer: rules.FIRST_EEL,
@@ -44,20 +49,21 @@ function makeRun(seed) {
 }
 function startGame(newMode = mode) {
   mode = newMode; inMenu = false;
+  rules.setSprint(mode === 'sprint');
   makeRun(mode === 'daily' ? rules.dailySeed(new Date()) : rules.newSeed());
   for (const id of ['over', 'paused', 'sign', 'menu', 'tip']) document.getElementById(id).classList.add('hidden');
   document.getElementById('pause').classList.remove('hidden');
   document.body.classList.remove('in-menu');
   updateHud();
   beginStage();
-  stat(`start-${mode}`, mode === 'daily' ? 'Started: Daily Challenge' : 'Started: a game');
+  stat(`start-${mode}`, {daily: 'Started: Daily Challenge', sprint: 'Started: Sprint'}[mode] || 'Started: a game');
 }
 // This run's random numbers, one stream per kind of thing, started fresh each stage (see the "Seeds" part of rules.js).
 const rand = name => (run.streams[name] ||= rules.makeRandom(rules.seedFor(run.seed, run.stage, name)))();
 
 // --- The start menu (Bryan, 2026-10-21): the title over the moving sea, Play, and the Daily Challenge with today's best. ---
 function showMenu() {
-  inMenu = true; makeRun(0);
+  inMenu = true; mode = 'play'; rules.setSprint(false); makeRun(0);
   setScene(0);
   for (const id of ['over', 'paused', 'sign', 'tip']) document.getElementById(id).classList.add('hidden');
   document.body.classList.add('in-menu');
@@ -65,6 +71,9 @@ function showMenu() {
   document.getElementById('menu-daily-date').textContent = today.toLocaleDateString(undefined, {timeZone: 'UTC', month: 'short', day: 'numeric'});
   document.getElementById('menu-daily-best').textContent = daily.day === rules.dayKey(today) ? `Today's best: ${daily.best.toLocaleString()}` : 'Not played yet today';
   document.getElementById('menu-best').textContent = best ? `Your best: ${best.score.toLocaleString()} · stage ${best.stage}` : '';
+  const sprintBest = loadScores('sprint')[0];
+  document.getElementById('menu-sprint-best').textContent = sprintBest ? `Your best: ${sprintBest.score.toLocaleString()} · stage ${sprintBest.stage}`
+    : 'Every monster from the start';
   document.getElementById('menu').classList.remove('hidden');
 }
 // In the menu the fish just swims lazily back and forth.
@@ -75,7 +84,7 @@ function idleFish(dt) {
   fish.facing = Math.cos(clock * .5) >= 0 ? 1 : -1;
   fish.x = x; fish.y = height * .66 + Math.sin(clock * 1.3) * 10;
 }
-for (const [id, m] of [['menu-play', 'play'], ['menu-daily', 'daily']]) {
+for (const [id, m] of [['menu-play', 'play'], ['menu-daily', 'daily'], ['menu-sprint', 'sprint']]) {
   document.getElementById(id).addEventListener('pointerdown', event => { event.stopPropagation(); unlockSound(); haptic('catch'); startGame(m); });
 }
 document.getElementById('over-menu').addEventListener('pointerdown', event => { event.stopPropagation(); haptic('catch'); showMenu(); });
@@ -128,7 +137,7 @@ function pauseGame() {
   if (!run || inMenu || run.over || run.paused) return;
   run.paused = true;
   const $ = id => document.getElementById(id);
-  $('paused-stage').textContent = `Stage ${run.stage}`;
+  $('paused-stage').textContent = `${mode === 'sprint' ? 'Sprint · ' : ''}Stage ${shownStage()}`;
   $('paused-score').textContent = run.score.toLocaleString();
   const hearts = Math.max(0, run.hearts);
   $('paused-details').textContent = `★ ${run.caught} · ${'♥'.repeat(hearts)}${'♡'.repeat(Math.max(0, rules.HEARTS - hearts))} · ${formatTime(run.time)}`;
@@ -186,7 +195,7 @@ function update(dt) {
   if (run.over) { run.overFor += dt; return; }
   run.time += dt;
   // A stage's last star starts the shark break; the next stage begins once the sea is clear (see startBreak).
-  if (!run.stageBreak && !run.stageDone && !run.ready && rules.stageEnded(run.stage, run.caught + rules.starsBefore(startStage))) {  // ?stage=N counts the stars before it
+  if (!run.stageBreak && !run.stageDone && !run.ready && rules.stageEnded(run.stage, run.caught + rules.starsBefore(firstStage()))) {  // ?stage=N and Sprint count the stars before it
     if (rules.sharkBreakAfter(run.stage)) startBreak(); else clearAndContinue();
   }  // ?stage=N counts as stars already caught
   const stage = run.stage;
@@ -311,7 +320,7 @@ function startBreak() {
   for (const shark of run.sharks) shark.passesLeft = 1;
   run.eels = run.eels.filter(eel => eel.state !== 'warn');  // eels still waiting don't come in; the others zip on out
   dropPickup('jaw');
-  announceStage(`Stage ${run.stage} clear!`, 'Grab the shark jaw!'); chime();
+  announceStage(`Stage ${shownStage()} clear!`, 'Grab the shark jaw!'); chime();
 }
 // Eat the jaw: the fish turns into a chomping shark.
 function becomeShark(jaw) {
@@ -376,7 +385,7 @@ function clearAndContinue() {
   poof();
   // "Stage N complete!" and a moment of empty sea, then the next stage (and its Beware sign).
   run.stageDone = {t: 0};
-  announceStage(`Stage ${run.stage} complete!`, 'Nice swimming!');
+  announceStage(`Stage ${shownStage()} complete!`, 'Nice swimming!');
   chime(); haptic('stage');
 }
 function nextStage() {
@@ -387,7 +396,7 @@ function nextStage() {
 // A new stage: if it brings in a new monster, its Beware sign comes up first (once the fish has finished changing back);
 // otherwise the "Stage N" banner right away.
 function beginStage() {
-  setScene(rules.sceneFor(run.stage));  // a new sea for every stage (scenery.js)
+  setScene(rules.sceneFor(shownStage()));  // a new sea for every stage (scenery.js)
   const intro = rules.course(run.stage).intro;
   if (intro && cardsOn) run.pendingSign = intro; else startRound();
 }
@@ -605,28 +614,30 @@ function endGame() {
   const $ = id => document.getElementById(id);
   const daily = mode === 'daily' && startStage === 1 ? saveDaily(run.score) : null;
   $('over-title').textContent = startStage > 1 ? `Practice run (from stage ${startStage})` : daily ? (daily.isNew ? 'New daily best!' : 'Daily Challenge')
-    : rank === 0 ? 'New best!' : 'Out of hearts';
+    : rank === 0 ? (mode === 'sprint' ? 'New Sprint best!' : 'New best!') : mode === 'sprint' ? 'Sprint over' : 'Out of hearts';
   $('over-title').classList.toggle('best', rank === 0 || !!(daily && daily.isNew));
   $('over-daily').textContent = daily ? `Today's best: ${daily.best.toLocaleString()}` : '';
   $('over-score').textContent = run.score.toLocaleString();
-  $('over-details').textContent = `★ ${run.caught} · Stage ${run.stage} · ${formatTime(run.time)} · best combo ${run.bestStreak}`;
+  $('over-details').textContent = `★ ${run.caught} · Stage ${shownStage()} · ${formatTime(run.time)} · best combo ${run.bestStreak}`;
   $('over-list').innerHTML = list.map((e, i) => `<li class="${i === rank ? 'mine' : ''}"><span>${i + 1}</span><b>${e.score.toLocaleString()}</b>` +
     `<span>stage ${e.stage}</span><span>${formatDate(e.date)}</span></li>`).join('');
   $('over').classList.remove('hidden');
 }
 // Put this run on the top-score list (practice runs from ?stage=N aren't saved). Returns the list and where it landed.
 function recordRun() {
-  const entry = {score: run.score, stars: run.caught, stage: run.stage, time: Math.round(run.time), combo: run.bestStreak, date: new Date().toISOString()};
-  if (startStage > 1) return {list: loadScores(), rank: -1};
-  const result = rules.addScore(loadScores(), entry);
-  saveScores(result.list);
+  const entry = {score: run.score, stars: run.caught, stage: shownStage(), time: Math.round(run.time), combo: run.bestStreak, date: new Date().toISOString()};
+  if (startStage > 1) return {list: loadScores(mode), rank: -1};
+  const result = rules.addScore(loadScores(mode), entry);
+  saveScores(result.list, mode);
   return result;
 }
 const formatDate = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString(undefined, {month: 'short', day: 'numeric'}); };
 // The top-score list lives in this browser's storage (it can be missing, e.g. in a private window; then it's just empty).
-const SCORES_KEY = 'starcatcher.scores';
-function loadScores() { try { return JSON.parse(localStorage.getItem(SCORES_KEY) || '[]'); } catch (_) { return []; } }
-function saveScores(list) { try { localStorage.setItem(SCORES_KEY, JSON.stringify(list)); } catch (_) {} }
+// Sprint has its own list; the main game and the Daily Challenge share one.
+const SCORES_KEY = 'starcatcher.scores', SPRINT_SCORES_KEY = 'starswim.sprintScores';
+const scoresKey = forMode => forMode === 'sprint' ? SPRINT_SCORES_KEY : SCORES_KEY;
+function loadScores(forMode) { try { return JSON.parse(localStorage.getItem(scoresKey(forMode)) || '[]'); } catch (_) { return []; } }
+function saveScores(list, forMode) { try { localStorage.setItem(scoresKey(forMode), JSON.stringify(list)); } catch (_) {} }
 // Wiping the scores (Bryan, 2026-10-22: "lets also wipe the high scores"): the first time a device opens this version,
 // its top-score list and today's daily best are cleared, once. To wipe them again some day, raise SCORES_WIPE.
 const SCORES_WIPE = 1, WIPE_KEY = 'starswim.scoresWiped';
@@ -862,9 +873,9 @@ function updateHud() {
   combo.innerHTML = multiplier >= rules.MAX_MULTIPLIER ? `<b>x${multiplier}</b> max`
     : `<b>x${multiplier}</b> ${'●'.repeat(filled)}${'○'.repeat(rules.COMBO_STEP - filled)}`;
   combo.classList.toggle('hidden', run.streak === 0);
-  document.getElementById('stage').textContent = (mode === 'daily' ? 'Daily · ' : '') + `Stage ${run.stage}`;
+  document.getElementById('stage').textContent = ({daily: 'Daily · ', sprint: 'Sprint · '}[mode] || '') + `Stage ${shownStage()}`;
 }
-function announceStage(title = `Stage ${run.stage}`, news = rules.stageNews(run.stage)) {
+function announceStage(title = `Stage ${shownStage()}`, news = rules.stageNews(run.stage)) {
   const banner = document.getElementById('banner');
   banner.innerHTML = `<b>${title}</b><span>${news}</span>`;
   banner.classList.remove('show'); void banner.offsetWidth; banner.classList.add('show');  // restart the fade
@@ -1036,8 +1047,8 @@ function reportError(error) {
 window.addEventListener('error', event => reportError(event.error || event.message));
 window.addEventListener('unhandledrejection', event => reportError(event.reason));
 function gameStats(how) {
-  const stage = String(run.stage).padStart(2, '0'), length = rules.playLength(run.time);
-  stat(`ended-on-stage-${stage}`, `Ended on stage ${run.stage}`);
+  const stage = String(shownStage()).padStart(2, '0'), length = rules.playLength(run.time), sprint = mode === 'sprint';
+  stat(`${sprint ? 'sprint-' : ''}ended-on-stage-${stage}`, `${sprint ? 'Sprint ended' : 'Ended'} on stage ${shownStage()}`);
   stat(`length-${length.replace(/\W+/g, '-')}`, `Game length: ${length}`);
   stat(`ended-${how.toLowerCase().replace(/\W+/g, '-')}`, `Ended: ${how}`);
 }

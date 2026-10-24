@@ -89,8 +89,17 @@
   // little calmer, so the new monster is a lesson.
   const SPEED_UP = 1.02;
   const INTRO_CALM = .85;
-  const busier = stage => Math.pow(SPEED_UP, stage - 1) * (stage > 1 && course(stage).intro ? INTRO_CALM : 1);
-  const quicker = stage => Math.pow(SPEED_UP, stage - 1);
+  // Sprint (Bryan, 2026-10-22): a separate mode that starts where every monster is already in (the main game's stage 10,
+  // at its pace) and then gets 5% faster each stage instead of 2%. The game turns it on with setSprint(true) for a
+  // Sprint run; a Sprint run's stage 1 is course stage 10 (SPRINT_FROM), stage 2 is course stage 11, and so on.
+  const SPRINT_SPEED_UP = 1.05;
+  const SPRINT_FROM = PAIRS_FROM;
+  let sprint = false;
+  const setSprint = on => { sprint = !!on; };
+  const sprintStage = stage => stage - SPRINT_FROM + 1;  // what a Sprint run calls course stage `stage`
+  const quicker = stage => sprint && stage >= SPRINT_FROM
+    ? Math.pow(SPEED_UP, SPRINT_FROM - 1) * Math.pow(SPRINT_SPEED_UP, stage - SPRINT_FROM) : Math.pow(SPEED_UP, stage - 1);
+  const busier = stage => quicker(stage) * (stage > 1 && course(stage).intro ? INTRO_CALM : 1);
   // The shark break comes at the end of every stage from the last intro on (Bryan, 2026-10-21: not between the intros;
   // there the leftover monsters just vanish and the next sign comes up).
   const sharkBreakAfter = stage => stage >= INTRO_STAGES;
@@ -460,7 +469,7 @@
 
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const api = {FINGER_OFFSET, FOLLOW_RATE, MAX_SPEED, fishTarget, follow, STAR_GAP, STAR_SPEED, STAR_RADIUS, touchesStar,
-    STARS_PER_STAGE, STARS_PER_INTRO, INTRO_STAGES, starsIn, starsBefore, stageFor, SPEED_UP, sharkBreakAfter, STAGE_DONE_PAUSE, READY_TIME, INTRO_ORDER, MONSTERS, TOUGHNESS, PAIRS, TRIOS, PAIRS_FROM, TRIOS_FROM, LAST_STAGE, course, has, FALLING, fallingKinds, mixSpacing, INTRO_CALM, busier, quicker,
+    STARS_PER_STAGE, STARS_PER_INTRO, INTRO_STAGES, starsIn, starsBefore, stageFor, SPEED_UP, sharkBreakAfter, STAGE_DONE_PAUSE, READY_TIME, INTRO_ORDER, MONSTERS, TOUGHNESS, PAIRS, TRIOS, PAIRS_FROM, TRIOS_FROM, LAST_STAGE, course, has, FALLING, fallingKinds, mixSpacing, INTRO_CALM, busier, quicker, SPRINT_SPEED_UP, SPRINT_FROM, setSprint, sprintStage,
     NAMES, stageNews, SIGNS, SIGN_AUTO, TIPS, TUTORIAL, TUTORIAL_AT, tipsAllowed, randomPickupsAt, BOMB_AFTER_INTROS, RAINBOW_AFTER_INTROS, HEARTS, SAFE_AFTER_BUMP, RESTART_PAUSE, RESUME_SAFE,
     JELLY_RADIUS, jellyGap, jellySpeed, HOMING_FALL, homingPull, homingDrift,
     strikeGap, legsFor, LEG_ROOM, maxLegs, warnTime, legStagger, RISE, LEG_UP, LEG_REACH,

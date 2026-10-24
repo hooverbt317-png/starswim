@@ -77,6 +77,8 @@
     #menu button.big { background: linear-gradient(180deg, #ffe17a, #ffbf3a); }
     #menu button.daily { background: linear-gradient(180deg, #b6f6e2, #6fd9bb); display: flex; flex-direction: column; gap: 3px; }
     #menu button.daily span { font-size: 14px; font-weight: 600; opacity: .8; }
+    #menu button.sprint { background: linear-gradient(180deg, #ffb3a0, #ff7f6a); display: flex; flex-direction: column; gap: 3px; }
+    #menu button.sprint span { font-size: 14px; font-weight: 600; opacity: .8; }
     #menu-best { margin-top: 6px; font-size: 15px; opacity: .75; }
     body.in-menu #hud, body.in-menu #hint { visibility: hidden; }
     #over-daily { font-size: 17px; color: #9ff3d8; }
@@ -190,6 +192,7 @@
     <div class="tagline">Catch the stars. Dodge the deep.</div>
     <button id="menu-play" type="button" class="big">Play</button>
     <button id="menu-daily" type="button" class="daily"><b>Daily Challenge</b><span><span id="menu-daily-date"></span> · <span id="menu-daily-best"></span></span></button>
+    <button id="menu-sprint" type="button" class="sprint"><b>Sprint</b><span id="menu-sprint-best"></span></button>
     <div id="menu-best"></div>
     <button id="menu-cards" type="button" class="cards-switch" aria-pressed="true"><span>Sea Creature &amp; Power Up notifications</span><i></i></button>
   </div>
